@@ -1,8 +1,8 @@
-#ifndef _FPTC_H_
-#define _FPTC_H_
+#ifndef _FPTC_NS_H_
+#define _FPTC_NS_H_
 
 /*
- * fptc.h is a 32-bit or 64-bit fixed point numeric library (modified by mgetka)
+ * fptc-ns.h is a 32-bit or 64-bit fixed point numeric library (modified by mgetka)
  *
  * The symbol FPT_BITS, if defined before this library header file
  * is included, determines the number of bits in the data type (its "width").
@@ -105,21 +105,25 @@ typedef __uint128_t fptud;
 #define FPT_VCSID "$Id$"
 
 #define FPT_FBITS  (FPT_BITS - FPT_WBITS)
+#define FPT_FMULT  ((fpt)1 << FPT_FBITS)
 #define FPT_FMASK  (((fpt)1 << FPT_FBITS) - 1)
 
 #define fl2fpt(R) ((fpt)((R) * FPT_ONE + ((R) >= 0 ? 0.5 : -0.5)))
-#define i2fpt(I) ((fptd)(I) << FPT_FBITS)
+#define i2fpt(I) ((fptd)(I) * FPT_FMULT)
 #define fpt2i(F) ((F) >> FPT_FBITS)
 
+#define fpt_norm_mul(N) (FPT_ONE >> (N))
+
+// n needs to be a positive value
 #define i2fpt_norm(I,n) (               \
-    (FPT_FBITS - n) >= 0 ?              \
-      ((fptd)(I) << (FPT_FBITS - n)) :  \
-      ((fptd)(I) >> -(FPT_FBITS - n))   \
+    fpt_norm_mul(n) >= 0 ?              \
+      ((fptd)(I) * fpt_norm_mul(n) :  \
+      ((fptd)(I) * -fpt_norm_mul(n))   \
   )
 #define fpt2i_norm(F,n) (               \
-    (FPT_FBITS - n) >= 0 ?              \
-      ((F) >> (FPT_FBITS - n)) :        \
-      ((F) << -(FPT_FBITS - n))         \
+    fpt_norm_mul(n) >= 0 ?              \
+      ((F) * fpt_norm_mul(n)) :        \
+      ((F) * -fpt_norm_mul(n))         \
   )
 #define fpt_norm(F,from,to) (           \
     (from - to) >= 0 ?                  \
@@ -132,7 +136,7 @@ typedef __uint128_t fptud;
 #define fpt_xmul(A,B)                   \
   ((fpt)(((fptd)(A) * (fptd)(B)) >> FPT_FBITS))
 #define fpt_xdiv(A,B)                   \
-  ((fpt)(((fptd)(A) << FPT_FBITS) / (fptd)(B)))
+  ((fpt)(((fptd)(A) * FPT_FMULT) / (fptd)(B)))
 #define fpt_fracpart(A) ((fpt)(A) & FPT_FMASK)
 
 #define FPT_ONE       ((fpt)((fpt)1 << FPT_FBITS))
@@ -222,12 +226,12 @@ fpt_mul(fpt A, fpt B)
   
   #ifdef FPT_MUL_OVERFLOW_HANDLING
   if (A < FPT_ZERO && B < FPT_ZERO) {
-    if ((fptd)A < ((fptd)FPT_MAX << FPT_FBITS) / (fptd)B) _fpt_mul_overflow_handler;
+    if ((fptd)A < ((fptd)FPT_MAX * FPT_FMULT) / (fptd)B) _fpt_mul_overflow_handler;
   } else if (B > FPT_ZERO) {
-    if ((fptd)A > ((fptd)FPT_MAX << FPT_FBITS) / (fptd)B) _fpt_mul_overflow_handler;
-    if ((fptd)A < ((fptd)FPT_MIN << FPT_FBITS) / (fptd)B) _fpt_mul_underflow_handler;
+    if ((fptd)A > ((fptd)FPT_MAX * FPT_FMULT) / (fptd)B) _fpt_mul_overflow_handler;
+    if ((fptd)A < ((fptd)FPT_MIN * FPT_FMULT) / (fptd)B) _fpt_mul_underflow_handler;
   } else if (B < FPT_ZERO) {
-    if ((fptd)A > ((fptd)FPT_MIN << FPT_FBITS) / (fptd)B) _fpt_mul_underflow_handler;
+    if ((fptd)A > ((fptd)FPT_MIN * FPT_FMULT) / (fptd)B) _fpt_mul_underflow_handler;
   }
   #endif
   
@@ -247,17 +251,17 @@ fpt_div(fpt A, fpt B)
    * computation overhead when doing this in here.*/
   if (fpt_abs(B) <= FPT_ONE) {
     if (A < FPT_ZERO && B < FPT_ZERO) {
-      if ((fptd)A << FPT_FBITS < (fptd)FPT_MAX * (fptd)B) _fpt_div_overflow_handler;
+      if ((fptd)A * FPT_FMULT < (fptd)FPT_MAX * (fptd)B) _fpt_div_overflow_handler;
     } else if (B > FPT_ZERO) {
-      if ((fptd)A << FPT_FBITS > (fptd)FPT_MAX * (fptd)B) _fpt_div_overflow_handler;
-      if ((fptd)A << FPT_FBITS < (fptd)FPT_MIN * (fptd)B) _fpt_div_underflow_handler;
+      if ((fptd)A * FPT_FMULT > (fptd)FPT_MAX * (fptd)B) _fpt_div_overflow_handler;
+      if ((fptd)A * FPT_FMULT < (fptd)FPT_MIN * (fptd)B) _fpt_div_underflow_handler;
     } else if (B < FPT_ZERO) {
-      if ((fptd)A << FPT_FBITS > (fptd)FPT_MIN * (fptd)B) _fpt_div_underflow_handler;
+      if ((fptd)A * FPT_FMULT > (fptd)FPT_MIN * (fptd)B) _fpt_div_underflow_handler;
     }
   }
   #endif
   
-  return (((fptd)A << FPT_FBITS) / (fptd)B);
+  return (((fptd)A * FPT_FMULT) / (fptd)B);
 }
 
 /*
@@ -563,7 +567,7 @@ fpt_ln(fpt x)
       + fpt_mul(w, LG[5]))) + fpt_mul(z, LG[0]
       + fpt_mul(w, LG[2] + fpt_mul(w, LG[4]
       + fpt_mul(w, LG[6]))));
-  return (fpt_mul(LN2, (log2 << FPT_FBITS)) + f
+  return (fpt_mul(LN2, (log2 * FPT_FMULT)) + f
       - fpt_mul(s, f - R));
 }
   

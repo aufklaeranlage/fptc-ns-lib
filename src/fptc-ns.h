@@ -79,6 +79,8 @@
 #endif
 
 #include <stdint.h>
+#include <stddef.h>
+#include <stdio.h>
 
 #if FPT_BITS == 32
 typedef int32_t fpt;
